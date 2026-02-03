@@ -2,7 +2,7 @@
 
 ## Overview
 
-OpenClaw skill for the Sharesight API. Uses Python with uv, OAuth 2.0 Client Credentials flow. Supports full CRUD operations for portfolios, holdings, custom investments, prices, and coupon rates.
+OpenClaw skill for the Sharesight API. Uses Python with uv, OAuth 2.0 Client Credentials flow. Supports full CRUD operations for portfolios, holdings, trades, custom investments, prices, and coupon rates.
 
 ## Project Structure
 
@@ -33,11 +33,12 @@ sharesight-skill/
 2. **OAuth Client Credentials**: Simpler than authorization_code, suitable for personal use.
 3. **Token caching**: Stored in `~/.config/sharesight-cli/config.json` with auto-refresh.
 4. **JSON output**: All commands output JSON for easy parsing by agents.
-5. **Write protection**: Write operations (create, update, delete) require `SHARESIGHT_ALLOW_WRITES=true` for safety.
+5. **Write protection**: Uses `@requires_write_permission` decorator. Write operations require `SHARESIGHT_ALLOW_WRITES=true`.
+6. **Mixed API versions**: Most endpoints use v3 API, trades use v2 API.
 
 ## API Coverage
 
-### Portfolios (Read-only)
+### Portfolios (Read-only) - v3 API
 
 | Endpoint | Method | CLI Command |
 |----------|--------|-------------|
@@ -47,7 +48,7 @@ sharesight-skill/
 | `/portfolios/{id}/performance` | GET | `portfolios performance <id>` |
 | `/portfolios/{id}/performance_index_chart` | GET | `portfolios chart <id>` |
 
-### Holdings (Read/Update/Delete)
+### Holdings (Read/Update/Delete) - v3 API
 
 | Endpoint | Method | CLI Command |
 |----------|--------|-------------|
@@ -56,7 +57,16 @@ sharesight-skill/
 | `/holdings/{id}` | PUT | `holdings update <id>` |
 | `/holdings/{id}` | DELETE | `holdings delete <id>` |
 
-### Custom Investments (Full CRUD)
+### Trades (Full CRUD) - v2 API
+
+| Endpoint | Method | CLI Command |
+|----------|--------|-------------|
+| `/trades.json` | POST | `trades create <portfolio_id>` |
+| `/trades/{id}.json` | GET | `trades get <id>` |
+| `/trades/{id}.json` | PUT | `trades update <id>` |
+| `/trades/{id}.json` | DELETE | `trades delete <id>` |
+
+### Custom Investments (Full CRUD) - v3 API
 
 | Endpoint | Method | CLI Command |
 |----------|--------|-------------|
@@ -66,7 +76,7 @@ sharesight-skill/
 | `/custom_investments/{id}` | PUT | `investments update <id>` |
 | `/custom_investments/{id}` | DELETE | `investments delete <id>` |
 
-### Custom Investment Prices (Full CRUD)
+### Custom Investment Prices (Full CRUD) - v3 API
 
 | Endpoint | Method | CLI Command |
 |----------|--------|-------------|
@@ -75,7 +85,7 @@ sharesight-skill/
 | `/prices/{id}.json` | PUT | `prices update <id>` |
 | `/prices/{id}.json` | DELETE | `prices delete <id>` |
 
-### Coupon Rates (Full CRUD)
+### Coupon Rates (Full CRUD) - v3 API
 
 | Endpoint | Method | CLI Command |
 |----------|--------|-------------|
@@ -84,7 +94,7 @@ sharesight-skill/
 | `/coupon_rates/{id}` | PUT | `coupon-rates update <id>` |
 | `/coupon_rates/{id}` | DELETE | `coupon-rates delete <id>` |
 
-### Reference Data
+### Reference Data - v3 API
 
 | Endpoint | Method | CLI Command |
 |----------|--------|-------------|
@@ -94,19 +104,40 @@ sharesight-skill/
 
 - [x] Project setup (pyproject.toml, directory structure)
 - [x] Auth module (client credentials flow, token storage)
-- [x] HTTP client (GET, POST methods)
-- [x] HTTP client (PUT, DELETE methods)
+- [x] HTTP client (GET, POST, PUT, DELETE methods)
+- [x] HTTP client (v2 API support for trades)
 - [x] API module (portfolio, holdings read endpoints)
 - [x] API module (holdings update/delete)
+- [x] API module (trades CRUD via v2 API)
 - [x] API module (custom investments CRUD)
 - [x] API module (prices CRUD)
 - [x] API module (coupon rates CRUD)
 - [x] CLI module (read commands)
-- [x] CLI module (write commands)
+- [x] CLI module (write commands with `@requires_write_permission` decorator)
+- [x] Write protection (`SHARESIGHT_ALLOW_WRITES` env var)
 - [x] SKILL.md (OpenClaw skill definition)
-- [x] README.md (user documentation)
-- [x] Test suite (base tests)
-- [x] Test suite (CRUD tests)
+- [x] README.md (user documentation with OpenClaw install instructions)
+- [x] Test suite (64 tests passing)
+
+## Installation
+
+```bash
+# Clone into skills directory
+cd ~/.claude/skills
+git clone https://github.com/your-username/sharesight-skill.git sharesight
+cd sharesight && uv sync
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SHARESIGHT_CLIENT_ID` | Yes | API client ID |
+| `SHARESIGHT_CLIENT_SECRET` | Yes | API client secret |
+| `SHARESIGHT_ALLOW_WRITES` | No | Set to `true` to enable write operations |
+
+For OpenClaw, configure in `~/.openclaw/.env` or `~/.openclaw/openclaw.json`.
+See [OpenClaw Environment Configuration](https://docs.openclaw.ai/environment).
 
 ## Testing
 
@@ -114,7 +145,7 @@ sharesight-skill/
 # Install with dev dependencies
 cd sharesight-skill && uv sync --extra dev
 
-# Run test suite
+# Run test suite (64 tests)
 uv run pytest tests/ -v
 
 # Verify CLI loads
@@ -132,11 +163,14 @@ uv run sharesight portfolios list
 | File | Tests | Coverage |
 |------|-------|----------|
 | `tests/test_auth.py` | 15 | OAuth credentials, token caching, refresh, expiry |
-| `tests/test_client.py` | 11+ | HTTP requests, error handling, 401 retry, PUT/DELETE |
-| `tests/test_cli.py` | 20+ | Argument parsing, all CLI commands |
+| `tests/test_client.py` | 13 | HTTP requests, error handling, 401 retry, PUT/DELETE |
+| `tests/test_cli.py` | 36 | Argument parsing, CLI commands, write protection |
 
 ## Notes
 
 - Sharesight access tokens expire after 30 minutes
 - API is in closed beta - contact Sharesight for access
-- Base URL: `https://api.sharesight.com/api/v3/`
+- Base URLs:
+  - v3 API: `https://api.sharesight.com/api/v3/`
+  - v2 API: `https://api.sharesight.com/api/v2/` (trades only)
+- Trades API uses different field names (`transaction_date` vs `trade_date`)
