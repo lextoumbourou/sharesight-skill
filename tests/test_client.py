@@ -76,6 +76,32 @@ class TestSharesightClient:
         assert result == {"success": True}
         client.close()
 
+    def test_put_request_success(self, mock_credentials, valid_token, httpx_mock):
+        httpx_mock.add_response(
+            method="PUT",
+            url="https://api.sharesight.com/api/v3/holdings/123",
+            json={"holding": {"id": 123, "drp_mode_setting": "up"}},
+        )
+
+        client = SharesightClient()
+        result = client.put("/holdings/123", json_data={"enable_drp": True})
+
+        assert result == {"holding": {"id": 123, "drp_mode_setting": "up"}}
+        client.close()
+
+    def test_delete_request_success(self, mock_credentials, valid_token, httpx_mock):
+        httpx_mock.add_response(
+            method="DELETE",
+            url="https://api.sharesight.com/api/v3/holdings/123",
+            json={"deleted": True},
+        )
+
+        client = SharesightClient()
+        result = client.delete("/holdings/123")
+
+        assert result == {"deleted": True}
+        client.close()
+
     def test_context_manager(self, mock_credentials, valid_token, httpx_mock):
         httpx_mock.add_response(
             method="GET",

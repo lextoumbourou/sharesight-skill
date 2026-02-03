@@ -7,6 +7,7 @@ import httpx
 from .auth import get_token, clear_token
 
 BASE_URL = "https://api.sharesight.com/api/v3"
+BASE_URL_V2 = "https://api.sharesight.com/api/v2"
 
 
 class SharesightClient:
@@ -90,6 +91,56 @@ class SharesightClient:
 
         return response.json()
 
+    def _request_v2(
+        self,
+        method: str,
+        path: str,
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+        retry_on_401: bool = True,
+    ) -> dict[str, Any]:
+        """Make an authenticated request to the v2 API."""
+        headers = self._get_headers()
+
+        # Use v2 base URL directly
+        url = BASE_URL_V2 + path
+
+        response = httpx.request(
+            method=method,
+            url=url,
+            params=params,
+            json=json_data,
+            headers=headers,
+            timeout=30.0,
+        )
+
+        # Handle 401 by refreshing token and retrying once
+        if response.status_code == 401 and retry_on_401:
+            clear_token()
+            headers = self._get_headers()
+            response = httpx.request(
+                method=method,
+                url=url,
+                params=params,
+                json=json_data,
+                headers=headers,
+                timeout=30.0,
+            )
+
+        if response.status_code >= 400:
+            error_detail = response.text
+            try:
+                error_json = response.json()
+                if "reason" in error_json:
+                    error_detail = error_json["reason"]
+                elif "error" in error_json:
+                    error_detail = error_json["error"]
+            except Exception:
+                pass
+            raise APIError(response.status_code, error_detail)
+
+        return response.json()
+
     def get(self, path: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """Make a GET request."""
         return self._request("GET", path, params=params)
@@ -99,6 +150,22 @@ class SharesightClient:
     ) -> dict[str, Any]:
         """Make a POST request."""
         return self._request("POST", path, params=params, json_data=json_data)
+
+    def post_v2(
+        self, path: str, json_data: Optional[dict[str, Any]] = None, params: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """Make a POST request to v2 API."""
+        return self._request_v2("POST", path, params=params, json_data=json_data)
+
+    def put(
+        self, path: str, json_data: Optional[dict[str, Any]] = None, params: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """Make a PUT request."""
+        return self._request("PUT", path, params=params, json_data=json_data)
+
+    def delete(self, path: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+        """Make a DELETE request."""
+        return self._request("DELETE", path, params=params)
 
     def close(self) -> None:
         """Close the HTTP client."""
