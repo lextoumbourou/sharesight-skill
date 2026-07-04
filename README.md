@@ -17,7 +17,7 @@
 ```bash
 # Clone into your skills directory
 cd ~/.claude/skills  # or your preferred skills location
-git clone https://github.com/your-username/sharesight-skill.git sharesight
+git clone https://github.com/lextoumbourou/sharesight-skill.git sharesight
 
 # Install dependencies
 cd sharesight
